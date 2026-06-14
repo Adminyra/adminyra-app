@@ -1,21 +1,36 @@
+import { requireCurrentUser } from "@/lib/auth/session";
+import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { AdminAppShell } from "@/modules/layout/AdminAppShell";
-import { PlaceholderPage } from "@/modules/shared/PlaceholderPage";
+import { AdministrationsPage } from "@/modules/administrations/AdministrationsPage";
 
-export default function AdministrationsRoute() {
+type AdministrationsRouteProps = {
+  searchParams?: Promise<{
+    created?: string;
+    error?: string;
+  }>;
+};
+
+export default async function AdministrationsRoute({
+  searchParams,
+}: AdministrationsRouteProps) {
+  await requireCurrentUser();
+
+  const params = await searchParams;
+  const supabase = await createSupabaseServerClient();
+
+  const { data, error } = await supabase
+    .from("administrations")
+    .select(
+      "id, name, legal_name, chamber_of_commerce_number, vat_number, tax_scheme, status, country_code, currency_code, created_at",
+    )
+    .order("created_at", { ascending: false });
+
   return (
     <AdminAppShell>
-      <PlaceholderPage
-        eyebrow="Adminyra Boekhoudapp"
-        title="Administraties"
-        description="Hier beheren we straks klanten, ondernemingen, boekjaren, btw-instellingen en toegang per administratie."
-        items={[
-          "Administratie aanmaken",
-          "Klantgegevens beheren",
-          "Boekjaren openen en sluiten",
-          "Btw-regime instellen",
-          "Gebruikers en rollen koppelen",
-          "Audit trail per administratie",
-        ]}
+      <AdministrationsPage
+        administrations={data ?? []}
+        created={params?.created === "1"}
+        error={params?.error ?? (error ? "load" : undefined)}
       />
     </AdminAppShell>
   );
