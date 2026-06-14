@@ -20,6 +20,10 @@ function parseMoney(value: FormDataEntryValue | null) {
   return Math.round(amount * 100) / 100;
 }
 
+function roundMoney(value: number) {
+  return Math.round(value * 100) / 100;
+}
+
 export async function createManualJournalEntryAction(formData: FormData) {
   await requireCurrentUser();
 
@@ -128,14 +132,20 @@ export async function addJournalEntryLineAction(formData: FormData) {
         code: string;
         name: string;
         direction: string;
+        rate_percent: number | string;
+        calculation_method: string;
         is_active: boolean;
+        payable_ledger_account_id: string | null;
+        receivable_ledger_account_id: string | null;
       }
     | null = null;
 
   if (vatCodeId) {
     const { data: vatCodeData, error: vatCodeError } = await supabase
       .from("vat_codes")
-      .select("id, administration_id, code, name, direction, is_active")
+      .select(
+        "id, administration_id, code, name, direction, rate_percent, calculation_method, is_active, payable_ledger_account_id, receivable_ledger_account_id",
+      )
       .eq("id", vatCodeId)
       .single();
 
@@ -180,6 +190,81 @@ export async function addJournalEntryLineAction(formData: FormData) {
 
   const nextLineNumber = Number(lastLine?.line_number ?? 0) + 1;
 
+  const shouldSplitVat =
+    vatCode &&
+    vatCode.calculation_method === "percentage" &&
+    Number(vatCode.rate_percent) > 0;
+
+  if (shouldSplitVat && vatCode) {
+    const rate = Number(vatCode.rate_percent);
+    const grossAmount = amount;
+    const vatAmount = roundMoney((grossAmount * rate) / (100 + rate));
+    const netAmount = roundMoney(grossAmount - vatAmount);
+
+    const vatLedgerAccountId =
+      vatCode.direction === "purchase"
+        ? vatCode.receivable_ledger_account_id
+        : vatCode.payable_ledger_account_id;
+
+    if (!vatLedgerAccountId) {
+      redirect(`${redirectBase}?error=missing-vat-ledger-account`);
+    }
+
+    const mainLinePayload = {
+      journal_entry_id: journalEntryId,
+      administration_id: entry.administration_id,
+      fiscal_year_id: entry.fiscal_year_id,
+      line_number: nextLineNumber,
+      ledger_account_id: ledgerAccountId,
+      vat_code_id: vatCode.id,
+      description: description || null,
+      debit_amount: side === "debit" ? netAmount : 0,
+      credit_amount: side === "credit" ? netAmount : 0,
+      amount_excl_vat: netAmount,
+      vat_amount: vatAmount,
+      amount_incl_vat: grossAmount,
+    };
+
+    const vatLinePayload = {
+      journal_entry_id: journalEntryId,
+      administration_id: entry.administration_id,
+      fiscal_year_id: entry.fiscal_year_id,
+      line_number: nextLineNumber + 1,
+      ledger_account_id: vatLedgerAccountId,
+      vat_code_id: null,
+      description: `Btw ${vatCode.code}`,
+      debit_amount: side === "debit" ? vatAmount : 0,
+      credit_amount: side === "credit" ? vatAmount : 0,
+      amount_excl_vat: vatAmount,
+      vat_amount: 0,
+      amount_incl_vat: vatAmount,
+    };
+
+    const { error } = await supabase
+      .from("journal_entry_lines")
+      .insert([mainLinePayload, vatLinePayload]);
+
+    if (error) {
+      console.error("Create VAT split journal lines failed:", error);
+
+      const errorMessage = `${error.message ?? ""} ${error.details ?? ""}`.toLowerCase();
+
+      if (
+        errorMessage.includes("vat code") ||
+        errorMessage.includes("purchase vat code") ||
+        errorMessage.includes("sales vat code") ||
+        errorMessage.includes("contra accounts")
+      ) {
+        redirect(`${redirectBase}?error=invalid-vat-usage`);
+      }
+
+      redirect(`${redirectBase}?error=create-journal-line`);
+    }
+
+    revalidatePath(redirectBase);
+    redirect(`${redirectBase}?journal_line_created=1`);
+  }
+
   const insertPayload = {
     journal_entry_id: journalEntryId,
     administration_id: entry.administration_id,
@@ -198,21 +283,21 @@ export async function addJournalEntryLineAction(formData: FormData) {
     .insert(insertPayload);
 
   if (error) {
-  console.error("Create journal entry line failed:", error);
+    console.error("Create journal entry line failed:", error);
 
-  const errorMessage = `${error.message ?? ""} ${error.details ?? ""}`.toLowerCase();
+    const errorMessage = `${error.message ?? ""} ${error.details ?? ""}`.toLowerCase();
 
-  if (
-    errorMessage.includes("vat code") ||
-    errorMessage.includes("purchase vat code") ||
-    errorMessage.includes("sales vat code") ||
-    errorMessage.includes("contra accounts")
-  ) {
-    redirect(`${redirectBase}?error=invalid-vat-usage`);
+    if (
+      errorMessage.includes("vat code") ||
+      errorMessage.includes("purchase vat code") ||
+      errorMessage.includes("sales vat code") ||
+      errorMessage.includes("contra accounts")
+    ) {
+      redirect(`${redirectBase}?error=invalid-vat-usage`);
+    }
+
+    redirect(`${redirectBase}?error=create-journal-line`);
   }
-
-  redirect(`${redirectBase}?error=create-journal-line`);
-}
 
   revalidatePath(redirectBase);
   redirect(`${redirectBase}?journal_line_created=1`);

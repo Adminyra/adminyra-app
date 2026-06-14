@@ -129,6 +129,10 @@ function getErrorMessage(error?: string) {
   return "Deze btw-code hoort niet bij deze grootboekrekening. Gebruik btw-codes alleen op omzet- of kostenregels en kies op tegenrekeningen geen btw-code.";
   }
 
+  if (error === "missing-vat-ledger-account") {
+  return "De btw-code mist nog een gekoppelde btw-grootboekrekening. Maak eerst het standaard grootboek en de standaard btw-codes opnieuw aan of controleer rekening 1500/1610.";
+  }
+
   if (error === "post-journal") {
     return "De journaalpost kon niet worden gepost. Controleer of debet en credit gelijk zijn.";
   }
