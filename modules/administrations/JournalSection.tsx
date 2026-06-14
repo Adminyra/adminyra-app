@@ -1,6 +1,7 @@
 import {
   addJournalEntryLineAction,
   createManualJournalEntryAction,
+  deleteJournalEntryLineAction,
   postJournalEntryAction,
 } from "@/modules/administrations/journalActions";
 import type { VatCodeRow } from "@/modules/administrations/VatCodesSection";
@@ -399,7 +400,7 @@ export function JournalSection({
 
                 {entry.lines.length > 0 ? (
                   <div className="mt-5 overflow-hidden rounded-2xl border border-[#0f2d3a]/10 bg-white">
-                    <div className="hidden grid-cols-[80px_115px_1.1fr_125px_105px_105px_105px_105px] gap-3 bg-[#fffaf4] px-4 py-3 text-xs font-black uppercase tracking-[0.16em] text-[#c9795e] lg:grid">
+                    <div className="hidden grid-cols-[70px_110px_1fr_120px_100px_100px_100px_100px_90px] gap-3 bg-[#fffaf4] px-4 py-3 text-xs font-black uppercase tracking-[0.16em] text-[#c9795e] lg:grid">
                       <span>Regel</span>
                       <span>Soort</span>
                       <span>Grootboek</span>
@@ -408,6 +409,7 @@ export function JournalSection({
                       <span>Btw</span>
                       <span>Debet</span>
                       <span>Credit</span>
+                      <span>Actie</span>
                     </div>
 
                     <div className="divide-y divide-[#0f2d3a]/10">
@@ -427,7 +429,7 @@ export function JournalSection({
                         return (
                           <div
                             key={line.id}
-                            className="grid gap-3 px-4 py-3 text-sm text-[#405459] lg:grid-cols-[80px_115px_1.1fr_125px_105px_105px_105px_105px] lg:items-center"
+                            className="grid gap-3 px-4 py-3 text-sm text-[#405459] lg:grid-cols-[70px_110px_1fr_120px_100px_100px_100px_100px_90px] lg:items-center"
                           >
                             <p className="font-black text-[#0f2d3a]">
                               {line.line_number}
@@ -454,6 +456,31 @@ export function JournalSection({
                             <p>{formatMoney(line.debit_amount)}</p>
 
                             <p>{formatMoney(line.credit_amount)}</p>
+
+                            <div>
+                              {entry.status === "draft" ? (
+                                <form action={deleteJournalEntryLineAction}>
+                                  <input
+                                    type="hidden"
+                                    name="administration_id"
+                                    value={administrationId}
+                                  />
+                                  <input
+                                    type="hidden"
+                                    name="journal_entry_line_id"
+                                    value={line.id}
+                                  />
+                                  <button
+                                    type="submit"
+                                    className="rounded-full border border-red-200 bg-red-50 px-3 py-1 text-xs font-black text-red-700 transition hover:bg-red-100"
+                                  >
+                                    Verwijder
+                                  </button>
+                                </form>
+                              ) : (
+                                <span className="text-xs text-[#607278]">—</span>
+                              )}
+                            </div>
                           </div>
                         );
                       })}

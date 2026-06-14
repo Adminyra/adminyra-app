@@ -247,7 +247,9 @@ export async function addJournalEntryLineAction(formData: FormData) {
     if (error) {
       console.error("Create VAT split journal lines failed:", error);
 
-      const errorMessage = `${error.message ?? ""} ${error.details ?? ""}`.toLowerCase();
+      const errorMessage = `${error.message ?? ""} ${
+        error.details ?? ""
+      }`.toLowerCase();
 
       if (
         errorMessage.includes("vat code") ||
@@ -285,7 +287,9 @@ export async function addJournalEntryLineAction(formData: FormData) {
   if (error) {
     console.error("Create journal entry line failed:", error);
 
-    const errorMessage = `${error.message ?? ""} ${error.details ?? ""}`.toLowerCase();
+    const errorMessage = `${error.message ?? ""} ${
+      error.details ?? ""
+    }`.toLowerCase();
 
     if (
       errorMessage.includes("vat code") ||
@@ -301,6 +305,33 @@ export async function addJournalEntryLineAction(formData: FormData) {
 
   revalidatePath(redirectBase);
   redirect(`${redirectBase}?journal_line_created=1`);
+}
+
+export async function deleteJournalEntryLineAction(formData: FormData) {
+  await requireCurrentUser();
+
+  const supabase = await createSupabaseServerClient();
+
+  const administrationId = String(formData.get("administration_id") ?? "");
+  const journalEntryLineId = String(formData.get("journal_entry_line_id") ?? "");
+
+  const redirectBase = `/administrations/${administrationId}`;
+
+  if (!administrationId || !journalEntryLineId) {
+    redirect(`${redirectBase}?error=delete-journal-line`);
+  }
+
+  const { error } = await supabase.rpc("delete_journal_entry_line", {
+    target_journal_entry_line_id: journalEntryLineId,
+  });
+
+  if (error) {
+    console.error("Delete journal entry line failed:", error);
+    redirect(`${redirectBase}?error=delete-journal-line`);
+  }
+
+  revalidatePath(redirectBase);
+  redirect(`${redirectBase}?journal_line_deleted=1`);
 }
 
 export async function postJournalEntryAction(formData: FormData) {
