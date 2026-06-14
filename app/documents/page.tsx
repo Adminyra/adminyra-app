@@ -1,6 +1,8 @@
 import { AdminAppShell } from "@/modules/layout/AdminAppShell";
 import { PlaceholderPage } from "@/modules/shared/PlaceholderPage";
 
+export const dynamic = "force-dynamic";
+
 export default function DocumentsRoute() {
   return (
     <AdminAppShell>

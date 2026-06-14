@@ -3,6 +3,8 @@ import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { AdminAppShell } from "@/modules/layout/AdminAppShell";
 import { AdministrationsPage } from "@/modules/administrations/AdministrationsPage";
 
+export const dynamic = "force-dynamic";
+
 type AdministrationsRouteProps = {
   searchParams?: Promise<{
     created?: string;

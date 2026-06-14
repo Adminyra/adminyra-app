@@ -1,5 +1,7 @@
 import { LoginPage } from "@/modules/auth/LoginPage";
 
+export const dynamic = "force-dynamic";
+
 type LoginRouteProps = {
   searchParams?: Promise<{
     error?: string;
