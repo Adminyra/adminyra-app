@@ -177,6 +177,13 @@ export function AdministrationsPage({
                   </div>
 
                   <div className="mt-4 grid gap-2 text-sm text-[#405459] md:grid-cols-2">
+                    <a
+  href={`/administrations/${administration.id}`}
+  className="mt-4 inline-flex w-fit items-center justify-center rounded-full bg-[#0f2d3a] px-4 py-2 text-sm font-black text-white"
+  style={{ color: "#ffffff" }}
+>
+  Open administratie
+</a>
                     <p>
                       <strong className="text-[#0f2d3a]">KvK:</strong>{" "}
                       {administration.chamber_of_commerce_number || "—"}
