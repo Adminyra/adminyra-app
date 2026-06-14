@@ -80,13 +80,16 @@ export default async function AdministrationDetailRoute({
       ? await supabase
           .from("journal_entry_lines")
           .select(
-            "id, journal_entry_id, line_number, ledger_account_id, vat_code_id, description, debit_amount, credit_amount, vat_amount, created_at",
+            "id, journal_entry_id, line_number, ledger_account_id, vat_code_id, description, debit_amount, credit_amount, amount_excl_vat, vat_amount, amount_incl_vat, created_at",
           )
           .in("journal_entry_id", journalEntryIds)
           .order("line_number", { ascending: true })
       : { data: [], error: null };
 
-  const linesByJournalEntry = new Map<string, typeof journalLinesData>();
+  const linesByJournalEntry = new Map<
+    string,
+    NonNullable<typeof journalLinesData>
+  >();
 
   for (const line of journalLinesData ?? []) {
     const existingLines = linesByJournalEntry.get(line.journal_entry_id) ?? [];

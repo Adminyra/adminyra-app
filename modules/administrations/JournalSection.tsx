@@ -29,7 +29,9 @@ export type JournalEntryLineRow = {
   description: string | null;
   debit_amount: number | string;
   credit_amount: number | string;
+  amount_excl_vat: number | string | null;
   vat_amount: number | string;
+  amount_incl_vat: number | string | null;
   created_at: string;
 };
 
@@ -373,9 +375,11 @@ export function JournalSection({
 
                 {entry.lines.length > 0 ? (
                   <div className="mt-5 overflow-hidden rounded-2xl border border-[#0f2d3a]/10 bg-white">
-                    <div className="hidden grid-cols-[70px_1.2fr_1fr_120px_120px] gap-3 bg-[#fffaf4] px-4 py-3 text-xs font-black uppercase tracking-[0.16em] text-[#c9795e] lg:grid">
+                    <div className="hidden grid-cols-[60px_1.1fr_120px_110px_110px_110px_110px] gap-3 bg-[#fffaf4] px-4 py-3 text-xs font-black uppercase tracking-[0.16em] text-[#c9795e] lg:grid">
                       <span>Regel</span>
                       <span>Grootboek</span>
+                      <span>Btw-code</span>
+                      <span>Excl.</span>
                       <span>Btw</span>
                       <span>Debet</span>
                       <span>Credit</span>
@@ -393,18 +397,26 @@ export function JournalSection({
                         return (
                           <div
                             key={line.id}
-                            className="grid gap-3 px-4 py-3 text-sm text-[#405459] lg:grid-cols-[70px_1.2fr_1fr_120px_120px] lg:items-center"
+                            className="grid gap-3 px-4 py-3 text-sm text-[#405459] lg:grid-cols-[60px_1.1fr_120px_110px_110px_110px_110px] lg:items-center"
                           >
                             <p className="font-black text-[#0f2d3a]">
                               {line.line_number}
                             </p>
+
                             <p>
                               {account
                                 ? `${account.code} · ${account.name}`
                                 : "Onbekende rekening"}
                             </p>
+
                             <p>{vatCode ? vatCode.code : "—"}</p>
+
+                            <p>{formatMoney(line.amount_excl_vat)}</p>
+
+                            <p>{formatMoney(line.vat_amount)}</p>
+
                             <p>{formatMoney(line.debit_amount)}</p>
+
                             <p>{formatMoney(line.credit_amount)}</p>
                           </div>
                         );
