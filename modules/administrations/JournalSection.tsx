@@ -1,6 +1,7 @@
 import {
   addJournalEntryLineAction,
   createManualJournalEntryAction,
+  deleteDraftJournalEntryAction,
   deleteJournalEntryLineAction,
   postJournalEntryAction,
 } from "@/modules/administrations/journalActions";
@@ -269,19 +270,42 @@ export function JournalSection({
                     </p>
                   </div>
 
-                  <div className="rounded-2xl bg-white px-4 py-3 text-sm leading-6 text-[#405459]">
-                    <p>
-                      <strong className="text-[#0f2d3a]">Debet:</strong>{" "}
-                      {formatMoney(entry.total_debit)}
-                    </p>
-                    <p>
-                      <strong className="text-[#0f2d3a]">Credit:</strong>{" "}
-                      {formatMoney(entry.total_credit)}
-                    </p>
-                    <p>
-                      <strong className="text-[#0f2d3a]">Verschil:</strong>{" "}
-                      {formatMoney(Math.abs(difference))}
-                    </p>
+                  <div className="flex flex-col gap-3">
+                    <div className="rounded-2xl bg-white px-4 py-3 text-sm leading-6 text-[#405459]">
+                      <p>
+                        <strong className="text-[#0f2d3a]">Debet:</strong>{" "}
+                        {formatMoney(entry.total_debit)}
+                      </p>
+                      <p>
+                        <strong className="text-[#0f2d3a]">Credit:</strong>{" "}
+                        {formatMoney(entry.total_credit)}
+                      </p>
+                      <p>
+                        <strong className="text-[#0f2d3a]">Verschil:</strong>{" "}
+                        {formatMoney(Math.abs(difference))}
+                      </p>
+                    </div>
+
+                    {entry.status === "draft" ? (
+                      <form action={deleteDraftJournalEntryAction}>
+                        <input
+                          type="hidden"
+                          name="administration_id"
+                          value={administrationId}
+                        />
+                        <input
+                          type="hidden"
+                          name="journal_entry_id"
+                          value={entry.id}
+                        />
+                        <button
+                          type="submit"
+                          className="w-full rounded-full border border-red-200 bg-red-50 px-4 py-2 text-xs font-black text-red-700 transition hover:bg-red-100"
+                        >
+                          Concept verwijderen
+                        </button>
+                      </form>
+                    ) : null}
                   </div>
                 </div>
 

@@ -24,6 +24,10 @@ function roundMoney(value: number) {
   return Math.round(value * 100) / 100;
 }
 
+function getSupabaseErrorText(error: { message?: string; details?: string } | null) {
+  return `${error?.message ?? ""} ${error?.details ?? ""}`.toLowerCase();
+}
+
 export async function createManualJournalEntryAction(formData: FormData) {
   await requireCurrentUser();
 
@@ -247,9 +251,7 @@ export async function addJournalEntryLineAction(formData: FormData) {
     if (error) {
       console.error("Create VAT split journal lines failed:", error);
 
-      const errorMessage = `${error.message ?? ""} ${
-        error.details ?? ""
-      }`.toLowerCase();
+      const errorMessage = getSupabaseErrorText(error);
 
       if (
         errorMessage.includes("vat code") ||
@@ -287,9 +289,7 @@ export async function addJournalEntryLineAction(formData: FormData) {
   if (error) {
     console.error("Create journal entry line failed:", error);
 
-    const errorMessage = `${error.message ?? ""} ${
-      error.details ?? ""
-    }`.toLowerCase();
+    const errorMessage = getSupabaseErrorText(error);
 
     if (
       errorMessage.includes("vat code") ||
@@ -332,6 +332,33 @@ export async function deleteJournalEntryLineAction(formData: FormData) {
 
   revalidatePath(redirectBase);
   redirect(`${redirectBase}?journal_line_deleted=1`);
+}
+
+export async function deleteDraftJournalEntryAction(formData: FormData) {
+  await requireCurrentUser();
+
+  const supabase = await createSupabaseServerClient();
+
+  const administrationId = String(formData.get("administration_id") ?? "");
+  const journalEntryId = String(formData.get("journal_entry_id") ?? "");
+
+  const redirectBase = `/administrations/${administrationId}`;
+
+  if (!administrationId || !journalEntryId) {
+    redirect(`${redirectBase}?error=delete-journal-entry`);
+  }
+
+  const { error } = await supabase.rpc("delete_draft_journal_entry", {
+    target_journal_entry_id: journalEntryId,
+  });
+
+  if (error) {
+    console.error("Delete draft journal entry failed:", error);
+    redirect(`${redirectBase}?error=delete-journal-entry`);
+  }
+
+  revalidatePath(redirectBase);
+  redirect(`${redirectBase}?journal_deleted=1`);
 }
 
 export async function postJournalEntryAction(formData: FormData) {
