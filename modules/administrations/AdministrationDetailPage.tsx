@@ -1,6 +1,10 @@
 import { createFiscalYearAction } from "@/modules/administrations/fiscalYearActions";
 import { createDefaultLedgerAccountsAction } from "@/modules/administrations/ledgerActions";
 import {
+  JournalSection,
+  type JournalEntryRow,
+} from "@/modules/administrations/JournalSection";
+import {
   VatCodesSection,
   type VatCodeRow,
 } from "@/modules/administrations/VatCodesSection";
@@ -48,6 +52,7 @@ type AdministrationDetailPageProps = {
   fiscalYears: FiscalYearRow[];
   ledgerAccounts: LedgerAccountRow[];
   vatCodes: VatCodeRow[];
+  journalEntries: JournalEntryRow[];
   fiscalYearCreated?: boolean;
   ledgerCreated?: string;
   vatCodesCreated?: string;
@@ -95,18 +100,35 @@ function formatDate(date: string) {
 function getErrorMessage(error?: string) {
   if (error === "invalid-year") return "Controleer het boekjaar.";
   if (error === "invalid-dates") return "Controleer de startdatum en einddatum.";
+
   if (error === "invalid-date-order") {
     return "De startdatum mag niet na de einddatum liggen.";
   }
+
   if (error === "duplicate-year") {
     return "Dit boekjaar bestaat al voor deze administratie.";
   }
+
   if (error === "create-ledger") {
     return "Het standaard grootboek kon niet worden aangemaakt.";
   }
+
   if (error === "create-vat-codes") {
     return "De standaard btw-codes konden niet worden aangemaakt.";
   }
+
+  if (error === "create-journal") {
+    return "De conceptboeking kon niet worden aangemaakt.";
+  }
+
+  if (error === "create-journal-line") {
+    return "De journaalregel kon niet worden toegevoegd.";
+  }
+
+  if (error === "post-journal") {
+    return "De journaalpost kon niet worden gepost. Controleer of debet en credit gelijk zijn.";
+  }
+
   if (error === "load-detail") {
     return "Niet alle gegevens konden worden geladen.";
   }
@@ -119,6 +141,7 @@ export function AdministrationDetailPage({
   fiscalYears,
   ledgerAccounts,
   vatCodes,
+  journalEntries,
   fiscalYearCreated,
   ledgerCreated,
   vatCodesCreated,
@@ -392,13 +415,21 @@ export function AdministrationDetailPage({
                   <p>{getNormalBalanceLabel(account.normal_balance)}</p>
 
                   <div className="flex flex-wrap gap-2">
-                    {account.is_bank_account ? <LedgerBadge label="Bank" /> : null}
-                    {account.is_cash_account ? <LedgerBadge label="Kas" /> : null}
-                    {account.is_vat_account ? <LedgerBadge label="Btw" /> : null}
+                    {account.is_bank_account ? (
+                      <LedgerBadge label="Bank" />
+                    ) : null}
+                    {account.is_cash_account ? (
+                      <LedgerBadge label="Kas" />
+                    ) : null}
+                    {account.is_vat_account ? (
+                      <LedgerBadge label="Btw" />
+                    ) : null}
                     {account.is_control_account ? (
                       <LedgerBadge label="Controle" />
                     ) : null}
-                    {!account.is_active ? <LedgerBadge label="Inactief" /> : null}
+                    {!account.is_active ? (
+                      <LedgerBadge label="Inactief" />
+                    ) : null}
                   </div>
                 </article>
               ))}
@@ -408,6 +439,14 @@ export function AdministrationDetailPage({
       </div>
 
       <VatCodesSection administrationId={administration.id} vatCodes={vatCodes} />
+
+      <JournalSection
+        administrationId={administration.id}
+        fiscalYears={fiscalYears}
+        ledgerAccounts={ledgerAccounts}
+        vatCodes={vatCodes}
+        journalEntries={journalEntries}
+      />
     </section>
   );
 }

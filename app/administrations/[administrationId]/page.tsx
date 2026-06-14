@@ -63,6 +63,42 @@ export default async function AdministrationDetailRoute({
     .eq("administration_id", administrationId)
     .order("code", { ascending: true });
 
+  const { data: journalEntriesData, error: journalEntriesError } = await supabase
+    .from("journal_entries")
+    .select(
+      "id, fiscal_year_id, entry_number, entry_date, description, reference, source_type, status, total_debit, total_credit, created_at",
+    )
+    .eq("administration_id", administrationId)
+    .order("entry_date", { ascending: false })
+    .order("created_at", { ascending: false })
+    .limit(25);
+
+  const journalEntryIds = (journalEntriesData ?? []).map((entry) => entry.id);
+
+  const { data: journalLinesData, error: journalLinesError } =
+    journalEntryIds.length > 0
+      ? await supabase
+          .from("journal_entry_lines")
+          .select(
+            "id, journal_entry_id, line_number, ledger_account_id, vat_code_id, description, debit_amount, credit_amount, vat_amount, created_at",
+          )
+          .in("journal_entry_id", journalEntryIds)
+          .order("line_number", { ascending: true })
+      : { data: [], error: null };
+
+  const linesByJournalEntry = new Map<string, typeof journalLinesData>();
+
+  for (const line of journalLinesData ?? []) {
+    const existingLines = linesByJournalEntry.get(line.journal_entry_id) ?? [];
+    existingLines.push(line);
+    linesByJournalEntry.set(line.journal_entry_id, existingLines);
+  }
+
+  const journalEntries = (journalEntriesData ?? []).map((entry) => ({
+    ...entry,
+    lines: linesByJournalEntry.get(entry.id) ?? [],
+  }));
+
   return (
     <AdminAppShell>
       <AdministrationDetailPage
@@ -70,12 +106,17 @@ export default async function AdministrationDetailRoute({
         fiscalYears={fiscalYears ?? []}
         ledgerAccounts={ledgerAccounts ?? []}
         vatCodes={vatCodes ?? []}
+        journalEntries={journalEntries}
         fiscalYearCreated={query?.fiscal_year_created === "1"}
         ledgerCreated={query?.ledger_created}
         vatCodesCreated={query?.vat_codes_created}
         error={
           query?.error ??
-          (fiscalYearsError || ledgerAccountsError || vatCodesError
+          (fiscalYearsError ||
+          ledgerAccountsError ||
+          vatCodesError ||
+          journalEntriesError ||
+          journalLinesError
             ? "load-detail"
             : undefined)
         }
