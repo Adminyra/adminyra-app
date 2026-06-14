@@ -14,6 +14,7 @@ type AdministrationDetailRouteProps = {
   searchParams?: Promise<{
     fiscal_year_created?: string;
     ledger_created?: string;
+    vat_codes_created?: string;
     error?: string;
   }>;
 };
@@ -54,17 +55,29 @@ export default async function AdministrationDetailRoute({
     .eq("administration_id", administrationId)
     .order("code", { ascending: true });
 
+  const { data: vatCodes, error: vatCodesError } = await supabase
+    .from("vat_codes")
+    .select(
+      "id, code, name, description, direction, rate_percent, calculation_method, vat_due_return_section, vat_deductible_return_section, is_reverse_charge, requires_icp_listing, deductibility_percent, is_active",
+    )
+    .eq("administration_id", administrationId)
+    .order("code", { ascending: true });
+
   return (
     <AdminAppShell>
       <AdministrationDetailPage
         administration={administration}
         fiscalYears={fiscalYears ?? []}
         ledgerAccounts={ledgerAccounts ?? []}
+        vatCodes={vatCodes ?? []}
         fiscalYearCreated={query?.fiscal_year_created === "1"}
         ledgerCreated={query?.ledger_created}
+        vatCodesCreated={query?.vat_codes_created}
         error={
           query?.error ??
-          (fiscalYearsError || ledgerAccountsError ? "load-detail" : undefined)
+          (fiscalYearsError || ledgerAccountsError || vatCodesError
+            ? "load-detail"
+            : undefined)
         }
       />
     </AdminAppShell>

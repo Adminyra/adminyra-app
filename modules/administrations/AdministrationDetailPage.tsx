@@ -1,5 +1,9 @@
 import { createFiscalYearAction } from "@/modules/administrations/fiscalYearActions";
 import { createDefaultLedgerAccountsAction } from "@/modules/administrations/ledgerActions";
+import {
+  VatCodesSection,
+  type VatCodeRow,
+} from "@/modules/administrations/VatCodesSection";
 
 type AdministrationDetail = {
   id: string;
@@ -43,8 +47,10 @@ type AdministrationDetailPageProps = {
   administration: AdministrationDetail;
   fiscalYears: FiscalYearRow[];
   ledgerAccounts: LedgerAccountRow[];
+  vatCodes: VatCodeRow[];
   fiscalYearCreated?: boolean;
   ledgerCreated?: string;
+  vatCodesCreated?: string;
   error?: string;
 };
 
@@ -98,6 +104,9 @@ function getErrorMessage(error?: string) {
   if (error === "create-ledger") {
     return "Het standaard grootboek kon niet worden aangemaakt.";
   }
+  if (error === "create-vat-codes") {
+    return "De standaard btw-codes konden niet worden aangemaakt.";
+  }
   if (error === "load-detail") {
     return "Niet alle gegevens konden worden geladen.";
   }
@@ -109,13 +118,21 @@ export function AdministrationDetailPage({
   administration,
   fiscalYears,
   ledgerAccounts,
+  vatCodes,
   fiscalYearCreated,
   ledgerCreated,
+  vatCodesCreated,
   error,
 }: AdministrationDetailPageProps) {
   const currentYear = new Date().getFullYear();
+
   const ledgerCreatedCount =
     typeof ledgerCreated === "string" ? Number.parseInt(ledgerCreated, 10) : null;
+
+  const vatCodesCreatedCount =
+    typeof vatCodesCreated === "string"
+      ? Number.parseInt(vatCodesCreated, 10)
+      : null;
 
   return (
     <section>
@@ -168,6 +185,13 @@ export function AdministrationDetailPage({
         <div className="mt-6 rounded-2xl border border-green-200 bg-green-50 px-4 py-3 text-sm font-bold text-green-800">
           Standaard grootboek verwerkt. Nieuwe rekeningen aangemaakt:{" "}
           {Number.isNaN(ledgerCreatedCount) ? 0 : ledgerCreatedCount}.
+        </div>
+      ) : null}
+
+      {vatCodesCreatedCount !== null ? (
+        <div className="mt-6 rounded-2xl border border-green-200 bg-green-50 px-4 py-3 text-sm font-bold text-green-800">
+          Standaard btw-codes verwerkt. Nieuwe codes aangemaakt:{" "}
+          {Number.isNaN(vatCodesCreatedCount) ? 0 : vatCodesCreatedCount}.
         </div>
       ) : null}
 
@@ -382,6 +406,8 @@ export function AdministrationDetailPage({
           </div>
         )}
       </div>
+
+      <VatCodesSection administrationId={administration.id} vatCodes={vatCodes} />
     </section>
   );
 }
