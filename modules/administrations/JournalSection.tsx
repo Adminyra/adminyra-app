@@ -81,6 +81,24 @@ function getStatusLabel(status: string) {
   return "Concept";
 }
 
+function getLineTypeLabel({
+  line,
+  accountCode,
+}: {
+  line: JournalEntryLineRow;
+  accountCode?: string;
+}) {
+  if (accountCode === "1500" || accountCode === "1610") {
+    return "Btw-regel";
+  }
+
+  if (line.vat_code_id) {
+    return "Hoofdregel";
+  }
+
+  return "Tegenregel";
+}
+
 export function JournalSection({
   administrationId,
   fiscalYears,
@@ -115,8 +133,8 @@ export function JournalSection({
         <div>
           <h2 className="text-xl font-black text-[#0f2d3a]">Journaal</h2>
           <p className="mt-2 max-w-3xl text-sm leading-6 text-[#405459]">
-            Hier maken we de eerste handmatige boekingen. Een journaalpost kan
-            pas definitief gepost worden als debet en credit gelijk zijn.
+            Hier maken we de eerste handmatige boekingen. Btw-regels worden
+            automatisch uitgesplitst naar de juiste btw-rekening.
           </p>
         </div>
 
@@ -184,7 +202,7 @@ export function JournalSection({
               <input
                 name="description"
                 required
-                placeholder="Bijvoorbeeld: handmatige correctie"
+                placeholder="Bijvoorbeeld: verkoopfactuur, inkoopfactuur of correctie"
                 className="mt-2 w-full rounded-2xl border border-[#0f2d3a]/15 bg-white px-4 py-3 text-[#1e2b30] outline-none focus:border-[#c9795e]"
               />
             </div>
@@ -286,6 +304,12 @@ export function JournalSection({
                       Regel toevoegen
                     </h4>
 
+                    <p className="mt-1 text-xs leading-5 text-[#607278]">
+                      Kies een btw-code alleen op omzet- of kostenregels. Op
+                      bank, kas, eigen vermogen, debiteuren en crediteuren kies
+                      je “Geen btw-code”.
+                    </p>
+
                     <div className="mt-4 grid gap-4 lg:grid-cols-[1.2fr_0.9fr_120px_130px_1fr]">
                       <div>
                         <label className="block text-xs font-black uppercase tracking-[0.16em] text-[#c9795e]">
@@ -375,8 +399,9 @@ export function JournalSection({
 
                 {entry.lines.length > 0 ? (
                   <div className="mt-5 overflow-hidden rounded-2xl border border-[#0f2d3a]/10 bg-white">
-                    <div className="hidden grid-cols-[60px_1.1fr_120px_110px_110px_110px_110px] gap-3 bg-[#fffaf4] px-4 py-3 text-xs font-black uppercase tracking-[0.16em] text-[#c9795e] lg:grid">
+                    <div className="hidden grid-cols-[80px_115px_1.1fr_125px_105px_105px_105px_105px] gap-3 bg-[#fffaf4] px-4 py-3 text-xs font-black uppercase tracking-[0.16em] text-[#c9795e] lg:grid">
                       <span>Regel</span>
+                      <span>Soort</span>
                       <span>Grootboek</span>
                       <span>Btw-code</span>
                       <span>Excl.</span>
@@ -394,13 +419,24 @@ export function JournalSection({
                           ? vatCodeMap.get(line.vat_code_id)
                           : null;
 
+                        const lineTypeLabel = getLineTypeLabel({
+                          line,
+                          accountCode: account?.code,
+                        });
+
                         return (
                           <div
                             key={line.id}
-                            className="grid gap-3 px-4 py-3 text-sm text-[#405459] lg:grid-cols-[60px_1.1fr_120px_110px_110px_110px_110px] lg:items-center"
+                            className="grid gap-3 px-4 py-3 text-sm text-[#405459] lg:grid-cols-[80px_115px_1.1fr_125px_105px_105px_105px_105px] lg:items-center"
                           >
                             <p className="font-black text-[#0f2d3a]">
                               {line.line_number}
+                            </p>
+
+                            <p>
+                              <span className="rounded-full bg-[#fffaf4] px-3 py-1 text-xs font-black text-[#c9795e]">
+                                {lineTypeLabel}
+                              </span>
                             </p>
 
                             <p>
@@ -444,6 +480,7 @@ export function JournalSection({
                         name="journal_entry_id"
                         value={entry.id}
                       />
+
                       <button
                         type="submit"
                         disabled={!isBalanced}
