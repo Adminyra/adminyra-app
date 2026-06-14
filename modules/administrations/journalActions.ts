@@ -105,6 +105,71 @@ export async function addJournalEntryLineAction(formData: FormData) {
     redirect(`${redirectBase}?error=create-journal-line`);
   }
 
+  const { data: ledgerAccount, error: ledgerAccountError } = await supabase
+    .from("ledger_accounts")
+    .select("id, administration_id, code, name, account_type, is_active")
+    .eq("id", ledgerAccountId)
+    .single();
+
+  if (
+    ledgerAccountError ||
+    !ledgerAccount ||
+    ledgerAccount.administration_id !== entry.administration_id ||
+    !ledgerAccount.is_active
+  ) {
+    console.error("Invalid ledger account for journal line:", ledgerAccountError);
+    redirect(`${redirectBase}?error=create-journal-line`);
+  }
+
+  let vatCode:
+    | {
+        id: string;
+        administration_id: string;
+        code: string;
+        name: string;
+        direction: string;
+        is_active: boolean;
+      }
+    | null = null;
+
+  if (vatCodeId) {
+    const { data: vatCodeData, error: vatCodeError } = await supabase
+      .from("vat_codes")
+      .select("id, administration_id, code, name, direction, is_active")
+      .eq("id", vatCodeId)
+      .single();
+
+    if (
+      vatCodeError ||
+      !vatCodeData ||
+      vatCodeData.administration_id !== entry.administration_id ||
+      !vatCodeData.is_active
+    ) {
+      console.error("Invalid VAT code for journal line:", vatCodeError);
+      redirect(`${redirectBase}?error=create-journal-line`);
+    }
+
+    vatCode = vatCodeData;
+
+    if (!["expense", "revenue"].includes(ledgerAccount.account_type)) {
+      redirect(`${redirectBase}?error=invalid-vat-usage`);
+    }
+
+    if (
+      vatCode.direction === "purchase" &&
+      ledgerAccount.account_type !== "expense"
+    ) {
+      redirect(`${redirectBase}?error=invalid-vat-usage`);
+    }
+
+    if (
+      vatCode.direction === "sales" &&
+      ledgerAccount.account_type !== "revenue"
+    ) {
+      redirect(`${redirectBase}?error=invalid-vat-usage`);
+    }
+  }
+
   const { data: lastLine } = await supabase
     .from("journal_entry_lines")
     .select("line_number")
@@ -133,9 +198,21 @@ export async function addJournalEntryLineAction(formData: FormData) {
     .insert(insertPayload);
 
   if (error) {
-    console.error("Create journal entry line failed:", error);
-    redirect(`${redirectBase}?error=create-journal-line`);
+  console.error("Create journal entry line failed:", error);
+
+  const errorMessage = `${error.message ?? ""} ${error.details ?? ""}`.toLowerCase();
+
+  if (
+    errorMessage.includes("vat code") ||
+    errorMessage.includes("purchase vat code") ||
+    errorMessage.includes("sales vat code") ||
+    errorMessage.includes("contra accounts")
+  ) {
+    redirect(`${redirectBase}?error=invalid-vat-usage`);
   }
+
+  redirect(`${redirectBase}?error=create-journal-line`);
+}
 
   revalidatePath(redirectBase);
   redirect(`${redirectBase}?journal_line_created=1`);

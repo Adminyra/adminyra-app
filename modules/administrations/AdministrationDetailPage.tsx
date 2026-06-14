@@ -125,6 +125,10 @@ function getErrorMessage(error?: string) {
     return "De journaalregel kon niet worden toegevoegd.";
   }
 
+  if (error === "invalid-vat-usage") {
+  return "Deze btw-code hoort niet bij deze grootboekrekening. Gebruik btw-codes alleen op omzet- of kostenregels en kies op tegenrekeningen geen btw-code.";
+  }
+
   if (error === "post-journal") {
     return "De journaalpost kon niet worden gepost. Controleer of debet en credit gelijk zijn.";
   }
