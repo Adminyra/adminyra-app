@@ -3,11 +3,14 @@ import { notFound } from "next/navigation";
 import { requireCurrentUser } from "@/lib/auth/session";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { AdministrationDetailPage } from "@/modules/administrations/AdministrationDetailPage";
+import type { AuditLogRow } from "@/modules/administrations/AuditLogSection";
+import type { BookkeepingSummaryAccountRow } from "@/modules/administrations/BookkeepingSummarySection";
 import type {
   JournalEntryLineRow,
   JournalEntryRow,
 } from "@/modules/administrations/JournalSection";
 import type { VatCodeRow } from "@/modules/administrations/VatCodesSection";
+import { AdminAppShell } from "@/modules/layout/AdminAppShell";
 
 export const dynamic = "force-dynamic";
 
@@ -30,12 +33,89 @@ type PageProps = {
 
 type JournalEntryFromDatabase = Omit<JournalEntryRow, "lines">;
 
+type PostedJournalLineRow = {
+  ledger_account_id: string;
+  debit_amount: number | string | null;
+  credit_amount: number | string | null;
+};
+
 function getSearchValue(value: string | string[] | undefined) {
   if (Array.isArray(value)) {
     return value[0];
   }
 
   return value;
+}
+
+function toMoneyNumber(value: number | string | null | undefined) {
+  const numberValue = typeof value === "string" ? Number(value) : value ?? 0;
+
+  if (!Number.isFinite(numberValue)) {
+    return 0;
+  }
+
+  return Math.round(numberValue * 100) / 100;
+}
+
+function buildBookkeepingSummaryRows({
+  ledgerAccounts,
+  postedJournalLines,
+}: {
+  ledgerAccounts: {
+    id: string;
+    code: string;
+    name: string;
+    account_type: string;
+    normal_balance: string;
+  }[];
+  postedJournalLines: PostedJournalLineRow[];
+}): BookkeepingSummaryAccountRow[] {
+  const totalsByLedgerAccount = new Map<
+    string,
+    {
+      debit_total: number;
+      credit_total: number;
+    }
+  >();
+
+  for (const line of postedJournalLines) {
+    const current = totalsByLedgerAccount.get(line.ledger_account_id) ?? {
+      debit_total: 0,
+      credit_total: 0,
+    };
+
+    current.debit_total += toMoneyNumber(line.debit_amount);
+    current.credit_total += toMoneyNumber(line.credit_amount);
+
+    totalsByLedgerAccount.set(line.ledger_account_id, current);
+  }
+
+  return ledgerAccounts
+    .map((account) => {
+      const totals = totalsByLedgerAccount.get(account.id) ?? {
+        debit_total: 0,
+        credit_total: 0,
+      };
+
+      const debitTotal = Math.round(totals.debit_total * 100) / 100;
+      const creditTotal = Math.round(totals.credit_total * 100) / 100;
+
+      return {
+        ledger_account_id: account.id,
+        account_code: account.code,
+        account_name: account.name,
+        account_type: account.account_type,
+        normal_balance: account.normal_balance,
+        debit_total: debitTotal,
+        credit_total: creditTotal,
+        balance:
+          account.normal_balance === "credit"
+            ? creditTotal - debitTotal
+            : debitTotal - creditTotal,
+      };
+    })
+    .filter((row) => row.debit_total !== 0 || row.credit_total !== 0)
+    .sort((a, b) => a.account_code.localeCompare(b.account_code));
 }
 
 export default async function AdministrationDetailRoute({
@@ -71,6 +151,7 @@ export default async function AdministrationDetailRoute({
     ledgerAccountsResult,
     vatCodesResult,
     journalEntriesResult,
+    auditLogsResult,
   ] = await Promise.all([
     supabase
       .from("fiscal_years")
@@ -103,6 +184,15 @@ export default async function AdministrationDetailRoute({
       .eq("administration_id", administrationId)
       .order("entry_date", { ascending: false })
       .order("created_at", { ascending: false }),
+
+    supabase
+      .from("audit_logs")
+      .select(
+        "id, administration_id, actor_profile_id, action, entity_table, entity_id, old_data, new_data, ip_address, user_agent, created_at",
+      )
+      .eq("administration_id", administrationId)
+      .order("created_at", { ascending: false })
+      .limit(50),
   ]);
 
   let loadError = false;
@@ -127,15 +217,25 @@ export default async function AdministrationDetailRoute({
     loadError = true;
   }
 
+  if (auditLogsResult.error) {
+    console.error("Load audit logs failed:", auditLogsResult.error);
+    loadError = true;
+  }
+
   const fiscalYears = fiscalYearsResult.data ?? [];
   const ledgerAccounts = ledgerAccountsResult.data ?? [];
   const vatCodes = (vatCodesResult.data ?? []) as VatCodeRow[];
+  const auditLogs = (auditLogsResult.data ?? []) as AuditLogRow[];
   const journalEntriesData = (journalEntriesResult.data ??
     []) as JournalEntryFromDatabase[];
 
   let journalLinesData: JournalEntryLineRow[] = [];
+  let postedJournalLines: PostedJournalLineRow[] = [];
 
   const journalEntryIds = journalEntriesData.map((entry) => entry.id);
+  const postedJournalEntryIds = journalEntriesData
+    .filter((entry) => entry.status === "posted")
+    .map((entry) => entry.id);
 
   if (journalEntryIds.length > 0) {
     const { data, error } = await supabase
@@ -153,6 +253,25 @@ export default async function AdministrationDetailRoute({
 
     journalLinesData = (data ?? []) as JournalEntryLineRow[];
   }
+
+  if (postedJournalEntryIds.length > 0) {
+    const { data, error } = await supabase
+      .from("journal_entry_lines")
+      .select("ledger_account_id, debit_amount, credit_amount")
+      .in("journal_entry_id", postedJournalEntryIds);
+
+    if (error) {
+      console.error("Load posted journal lines failed:", error);
+      loadError = true;
+    }
+
+    postedJournalLines = (data ?? []) as PostedJournalLineRow[];
+  }
+
+  const bookkeepingSummaryRows = buildBookkeepingSummaryRows({
+    ledgerAccounts,
+    postedJournalLines,
+  });
 
   const linesByJournalEntry = new Map<string, JournalEntryLineRow[]>(
     journalEntriesData.map((entry) => [entry.id, [] as JournalEntryLineRow[]]),
@@ -176,18 +295,22 @@ export default async function AdministrationDetailRoute({
   const error = queryError ?? (loadError ? "load-detail" : undefined);
 
   return (
-    <AdministrationDetailPage
-      administration={administration}
-      fiscalYears={fiscalYears}
-      ledgerAccounts={ledgerAccounts}
-      vatCodes={vatCodes}
-      journalEntries={journalEntries}
-      fiscalYearCreated={
-        getSearchValue(resolvedSearchParams.fiscal_year_created) === "1"
-      }
-      ledgerCreated={getSearchValue(resolvedSearchParams.ledger_created)}
-      vatCodesCreated={getSearchValue(resolvedSearchParams.vat_codes_created)}
-      error={error}
-    />
+    <AdminAppShell>
+      <AdministrationDetailPage
+        administration={administration}
+        fiscalYears={fiscalYears}
+        ledgerAccounts={ledgerAccounts}
+        vatCodes={vatCodes}
+        journalEntries={journalEntries}
+        auditLogs={auditLogs}
+        bookkeepingSummaryRows={bookkeepingSummaryRows}
+        fiscalYearCreated={
+          getSearchValue(resolvedSearchParams.fiscal_year_created) === "1"
+        }
+        ledgerCreated={getSearchValue(resolvedSearchParams.ledger_created)}
+        vatCodesCreated={getSearchValue(resolvedSearchParams.vat_codes_created)}
+        error={error}
+      />
+    </AdminAppShell>
   );
 }

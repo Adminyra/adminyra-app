@@ -1,3 +1,11 @@
+import {
+  AuditLogSection,
+  type AuditLogRow,
+} from "@/modules/administrations/AuditLogSection";
+import {
+  BookkeepingSummarySection,
+  type BookkeepingSummaryAccountRow,
+} from "@/modules/administrations/BookkeepingSummarySection";
 import { createFiscalYearAction } from "@/modules/administrations/fiscalYearActions";
 import { createDefaultLedgerAccountsAction } from "@/modules/administrations/ledgerActions";
 import {
@@ -53,6 +61,8 @@ type AdministrationDetailPageProps = {
   ledgerAccounts: LedgerAccountRow[];
   vatCodes: VatCodeRow[];
   journalEntries: JournalEntryRow[];
+  auditLogs: AuditLogRow[];
+  bookkeepingSummaryRows: BookkeepingSummaryAccountRow[];
   fiscalYearCreated?: boolean;
   ledgerCreated?: string;
   vatCodesCreated?: string;
@@ -105,16 +115,6 @@ function getErrorMessage(error?: string) {
     return "De startdatum mag niet na de einddatum liggen.";
   }
 
-  if (error === "delete-journal-entry") {
-  return "De conceptboeking kon niet worden verwijderd. Alleen conceptboekingen mogen verwijderd worden.";
-  }
-  
-  if (error === "create-correction-journal") {
-  return "De correctieboeking kon niet worden aangemaakt. Alleen geposte boekingen kunnen via een correctieboeking worden teruggedraaid.";
-  }
-
-
-
   if (error === "duplicate-year") {
     return "Dit boekjaar bestaat al voor deze administratie.";
   }
@@ -147,6 +147,14 @@ function getErrorMessage(error?: string) {
     return "De journaalregel kon niet worden verwijderd. Alleen regels uit conceptboekingen mogen verwijderd worden.";
   }
 
+  if (error === "delete-journal-entry") {
+    return "De conceptboeking kon niet worden verwijderd. Alleen conceptboekingen mogen verwijderd worden.";
+  }
+
+  if (error === "create-correction-journal") {
+    return "De correctieboeking kon niet worden aangemaakt. Alleen geposte boekingen kunnen via een correctieboeking worden teruggedraaid.";
+  }
+
   if (error === "post-journal") {
     return "De journaalpost kon niet worden gepost. Controleer of debet en credit gelijk zijn.";
   }
@@ -164,6 +172,8 @@ export function AdministrationDetailPage({
   ledgerAccounts,
   vatCodes,
   journalEntries,
+  auditLogs,
+  bookkeepingSummaryRows,
   fiscalYearCreated,
   ledgerCreated,
   vatCodesCreated,
@@ -440,18 +450,12 @@ export function AdministrationDetailPage({
                     {account.is_bank_account ? (
                       <LedgerBadge label="Bank" />
                     ) : null}
-                    {account.is_cash_account ? (
-                      <LedgerBadge label="Kas" />
-                    ) : null}
-                    {account.is_vat_account ? (
-                      <LedgerBadge label="Btw" />
-                    ) : null}
+                    {account.is_cash_account ? <LedgerBadge label="Kas" /> : null}
+                    {account.is_vat_account ? <LedgerBadge label="Btw" /> : null}
                     {account.is_control_account ? (
                       <LedgerBadge label="Controle" />
                     ) : null}
-                    {!account.is_active ? (
-                      <LedgerBadge label="Inactief" />
-                    ) : null}
+                    {!account.is_active ? <LedgerBadge label="Inactief" /> : null}
                   </div>
                 </article>
               ))}
@@ -462,6 +466,8 @@ export function AdministrationDetailPage({
 
       <VatCodesSection administrationId={administration.id} vatCodes={vatCodes} />
 
+      <BookkeepingSummarySection rows={bookkeepingSummaryRows} />
+
       <JournalSection
         administrationId={administration.id}
         fiscalYears={fiscalYears}
@@ -469,6 +475,8 @@ export function AdministrationDetailPage({
         vatCodes={vatCodes}
         journalEntries={journalEntries}
       />
+
+      <AuditLogSection auditLogs={auditLogs} />
     </section>
   );
 }
