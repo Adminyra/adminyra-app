@@ -105,6 +105,11 @@ function getErrorMessage(error?: string) {
     return "De startdatum mag niet na de einddatum liggen.";
   }
 
+  if (error === "delete-journal-entry") {
+  return "De conceptboeking kon niet worden verwijderd. Alleen conceptboekingen mogen verwijderd worden.";
+  }
+
+
   if (error === "duplicate-year") {
     return "Dit boekjaar bestaat al voor deze administratie.";
   }
