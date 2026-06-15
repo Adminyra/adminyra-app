@@ -1,5 +1,6 @@
 import {
   addJournalEntryLineAction,
+  createCorrectionJournalEntryAction,
   createManualJournalEntryAction,
   deleteDraftJournalEntryAction,
   deleteJournalEntryLineAction,
@@ -135,8 +136,9 @@ export function JournalSection({
         <div>
           <h2 className="text-xl font-black text-[#0f2d3a]">Journaal</h2>
           <p className="mt-2 max-w-3xl text-sm leading-6 text-[#405459]">
-            Hier maken we de eerste handmatige boekingen. Btw-regels worden
-            automatisch uitgesplitst naar de juiste btw-rekening.
+            Hier maken we handmatige boekingen. Btw-regels worden automatisch
+            uitgesplitst naar de juiste btw-rekening. Geposte boekingen pas je
+            niet direct aan; die corrigeer je met een aparte correctieboeking.
           </p>
         </div>
 
@@ -303,6 +305,27 @@ export function JournalSection({
                           className="w-full rounded-full border border-red-200 bg-red-50 px-4 py-2 text-xs font-black text-red-700 transition hover:bg-red-100"
                         >
                           Concept verwijderen
+                        </button>
+                      </form>
+                    ) : null}
+
+                    {entry.status === "posted" ? (
+                      <form action={createCorrectionJournalEntryAction}>
+                        <input
+                          type="hidden"
+                          name="administration_id"
+                          value={administrationId}
+                        />
+                        <input
+                          type="hidden"
+                          name="journal_entry_id"
+                          value={entry.id}
+                        />
+                        <button
+                          type="submit"
+                          className="w-full rounded-full border border-[#0f2d3a]/15 bg-white px-4 py-2 text-xs font-black text-[#0f2d3a] transition hover:bg-[#fffaf4]"
+                        >
+                          Correctie maken
                         </button>
                       </form>
                     ) : null}

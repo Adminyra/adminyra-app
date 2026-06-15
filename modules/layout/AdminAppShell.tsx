@@ -1,3 +1,5 @@
+import { requireCurrentUser } from "@/lib/auth/session";
+
 type AdminAppShellProps = {
   children: React.ReactNode;
 };

@@ -28,6 +28,29 @@ function getSupabaseErrorText(error: { message?: string; details?: string } | nu
   return `${error?.message ?? ""} ${error?.details ?? ""}`.toLowerCase();
 }
 
+function toMoneyNumber(value: number | string | null | undefined) {
+  const numberValue = typeof value === "string" ? Number(value) : value ?? 0;
+
+  if (!Number.isFinite(numberValue)) {
+    return 0;
+  }
+
+  return Math.round(numberValue * 100) / 100;
+}
+
+type CorrectionJournalLine = {
+  id: string;
+  line_number: number;
+  ledger_account_id: string;
+  vat_code_id: string | null;
+  description: string | null;
+  debit_amount: number | string;
+  credit_amount: number | string;
+  amount_excl_vat: number | string | null;
+  vat_amount: number | string | null;
+  amount_incl_vat: number | string | null;
+};
+
 export async function createManualJournalEntryAction(formData: FormData) {
   await requireCurrentUser();
 
@@ -359,6 +382,138 @@ export async function deleteDraftJournalEntryAction(formData: FormData) {
 
   revalidatePath(redirectBase);
   redirect(`${redirectBase}?journal_deleted=1`);
+}
+
+export async function createCorrectionJournalEntryAction(formData: FormData) {
+  await requireCurrentUser();
+
+  const supabase = await createSupabaseServerClient();
+
+  const administrationId = String(formData.get("administration_id") ?? "");
+  const journalEntryId = String(formData.get("journal_entry_id") ?? "");
+
+  const redirectBase = `/administrations/${administrationId}`;
+
+  if (!administrationId || !journalEntryId) {
+    redirect(`${redirectBase}?error=create-correction-journal`);
+  }
+
+  const { data: originalEntry, error: originalEntryError } = await supabase
+    .from("journal_entries")
+    .select(
+      "id, administration_id, fiscal_year_id, entry_number, entry_date, description, reference, status",
+    )
+    .eq("id", journalEntryId)
+    .single();
+
+  if (
+    originalEntryError ||
+    !originalEntry ||
+    originalEntry.administration_id !== administrationId ||
+    originalEntry.status !== "posted"
+  ) {
+    console.error("Load posted journal entry for correction failed:", originalEntryError);
+    redirect(`${redirectBase}?error=create-correction-journal`);
+  }
+
+  const { data: originalLinesData, error: originalLinesError } = await supabase
+    .from("journal_entry_lines")
+    .select(
+      "id, line_number, ledger_account_id, vat_code_id, description, debit_amount, credit_amount, amount_excl_vat, vat_amount, amount_incl_vat",
+    )
+    .eq("journal_entry_id", journalEntryId)
+    .order("line_number", { ascending: true });
+
+  if (originalLinesError) {
+    console.error("Load posted journal lines for correction failed:", originalLinesError);
+    redirect(`${redirectBase}?error=create-correction-journal`);
+  }
+
+  const originalLines = (originalLinesData ?? []) as CorrectionJournalLine[];
+
+  if (originalLines.length === 0) {
+    redirect(`${redirectBase}?error=create-correction-journal`);
+  }
+
+  const originalLabel = originalEntry.entry_number
+    ? `journaalpost ${originalEntry.entry_number}`
+    : "geposte boeking";
+
+  const today = new Date().toISOString().slice(0, 10);
+
+  const correctionEntryPayload = {
+    administration_id: originalEntry.administration_id,
+    fiscal_year_id: originalEntry.fiscal_year_id,
+    entry_date: today,
+    description: `Correctie op ${originalLabel}: ${originalEntry.description}`,
+    reference: originalEntry.reference
+      ? `Correctie op ${originalEntry.reference}`
+      : `Correctie op ${originalLabel}`,
+    source_type: "manual",
+    status: "draft",
+  };
+
+  const { data: correctionEntry, error: correctionEntryError } = await supabase
+    .from("journal_entries")
+    .insert(correctionEntryPayload)
+    .select("id")
+    .single();
+
+  if (correctionEntryError || !correctionEntry) {
+    console.error("Create correction journal entry failed:", correctionEntryError);
+    redirect(`${redirectBase}?error=create-correction-journal`);
+  }
+
+  const correctionLinesPayload = originalLines.map((line) => {
+    const originalDebit = toMoneyNumber(line.debit_amount);
+    const originalCredit = toMoneyNumber(line.credit_amount);
+
+    return {
+      journal_entry_id: correctionEntry.id,
+      administration_id: originalEntry.administration_id,
+      fiscal_year_id: originalEntry.fiscal_year_id,
+      line_number: line.line_number,
+      ledger_account_id: line.ledger_account_id,
+      vat_code_id: line.vat_code_id,
+      description: line.description
+        ? `Correctie: ${line.description}`
+        : `Correctie regel ${line.line_number}`,
+      debit_amount: originalCredit,
+      credit_amount: originalDebit,
+      amount_excl_vat: toMoneyNumber(line.amount_excl_vat),
+      vat_amount: toMoneyNumber(line.vat_amount),
+      amount_incl_vat: toMoneyNumber(line.amount_incl_vat),
+    };
+  });
+
+  const { error: correctionLinesError } = await supabase
+    .from("journal_entry_lines")
+    .insert(correctionLinesPayload);
+
+  if (correctionLinesError) {
+    console.error("Create correction journal lines failed:", correctionLinesError);
+
+    await supabase.rpc("delete_draft_journal_entry", {
+      target_journal_entry_id: correctionEntry.id,
+    });
+
+    redirect(`${redirectBase}?error=create-correction-journal`);
+  }
+
+  await supabase.rpc("write_audit_log", {
+    p_administration_id: originalEntry.administration_id,
+    p_action: "journal_entry.correction_created",
+    p_entity_table: "journal_entries",
+    p_entity_id: correctionEntry.id,
+    p_old_data: {
+      corrected_journal_entry_id: originalEntry.id,
+      corrected_entry_number: originalEntry.entry_number,
+    },
+    p_new_data: correctionEntryPayload,
+  });
+
+  revalidatePath(redirectBase);
+  redirect(`${redirectBase}?journal_created=1`);
 }
 
 export async function postJournalEntryAction(formData: FormData) {

@@ -1,24 +1,31 @@
+import { requireCurrentUser } from "@/lib/auth/session";
 import { AdminAppShell } from "@/modules/layout/AdminAppShell";
-import { PlaceholderPage } from "@/modules/shared/PlaceholderPage";
 
 export const dynamic = "force-dynamic";
 
-export default function DocumentsRoute() {
+export default async function DocumentsRoute() {
+  await requireCurrentUser();
+
   return (
     <AdminAppShell>
-      <PlaceholderPage
-        eyebrow="Adminyra Boekhoudapp"
-        title="Documenten"
-        description="Hier komen bonnen, verkoopfacturen, inkoopfacturen, mandaten, overeenkomsten en controledocumenten."
-        items={[
-          "Documenten uploaden",
-          "Bonnen en facturen verwerken",
-          "Documentstatussen",
-          "Koppeling aan boeking",
-          "Dossier per klant",
-          "Bewaarplicht en audit trail",
-        ]}
-      />
+      <section>
+        <p className="mb-3 text-sm font-black uppercase tracking-[0.35em] text-[#c9795e]">
+          Documenten
+        </p>
+
+        <h1 className="text-4xl font-black tracking-[-0.03em] text-[#0f2d3a] md:text-5xl">
+          Documenten
+        </h1>
+
+        <p className="mt-4 max-w-3xl text-lg leading-8 text-[#405459]">
+          Hier komt later het documentdossier voor facturen, bonnetjes,
+          overeenkomsten, akkoordmomenten en onderbouwing bij boekingen.
+        </p>
+
+        <div className="mt-8 rounded-[2rem] border border-dashed border-[#0f2d3a]/20 bg-white p-6 text-sm leading-7 text-[#405459] shadow-sm">
+          Nog geen documentmodule actief.
+        </div>
+      </section>
     </AdminAppShell>
   );
 }
