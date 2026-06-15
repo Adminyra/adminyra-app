@@ -108,6 +108,11 @@ function getErrorMessage(error?: string) {
   if (error === "delete-journal-entry") {
   return "De conceptboeking kon niet worden verwijderd. Alleen conceptboekingen mogen verwijderd worden.";
   }
+  
+  if (error === "create-correction-journal") {
+  return "De correctieboeking kon niet worden aangemaakt. Alleen geposte boekingen kunnen via een correctieboeking worden teruggedraaid.";
+  }
+
 
 
   if (error === "duplicate-year") {

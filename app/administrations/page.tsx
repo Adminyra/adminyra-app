@@ -1,24 +1,32 @@
 import { requireCurrentUser } from "@/lib/auth/session";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
-import { AdminAppShell } from "@/modules/layout/AdminAppShell";
 import { AdministrationsPage } from "@/modules/administrations/AdministrationsPage";
+import { AdminAppShell } from "@/modules/layout/AdminAppShell";
 
 export const dynamic = "force-dynamic";
 
-type AdministrationsRouteProps = {
+type PageProps = {
   searchParams?: Promise<{
     created?: string;
     error?: string;
   }>;
 };
 
+function getSearchValue(value: string | string[] | undefined) {
+  if (Array.isArray(value)) {
+    return value[0];
+  }
+
+  return value;
+}
+
 export default async function AdministrationsRoute({
   searchParams,
-}: AdministrationsRouteProps) {
+}: PageProps) {
   await requireCurrentUser();
 
-  const params = await searchParams;
   const supabase = await createSupabaseServerClient();
+  const resolvedSearchParams = (await searchParams) ?? {};
 
   const { data, error } = await supabase
     .from("administrations")
@@ -31,8 +39,8 @@ export default async function AdministrationsRoute({
     <AdminAppShell>
       <AdministrationsPage
         administrations={data ?? []}
-        created={params?.created === "1"}
-        error={params?.error ?? (error ? "load" : undefined)}
+        created={getSearchValue(resolvedSearchParams.created) === "1"}
+        error={getSearchValue(resolvedSearchParams.error) ?? (error ? "load" : undefined)}
       />
     </AdminAppShell>
   );
